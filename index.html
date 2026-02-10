@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>For Panda</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Jost:wght@200;300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080808;
+    --text: #e8e4de;
+    --muted: rgba(232,228,222,0.38);
+    --red: #c8001a;
+    --red-soft: rgba(200,0,26,0.18);
+    --line: rgba(232,228,222,0.1);
+  }
+
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+  html, body {
+    width:100%; height:100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Jost', sans-serif;
+    overflow: hidden;
+  }
+
+  /* ── CANVAS LAYERS ── */
+  canvas { position:fixed; inset:0; pointer-events:none; }
+  #stars  { z-index:0; }
+  #aurora { z-index:1; }
+
+  /* ── FLOATING ELEMENTS ── */
+  .float {
+    position:fixed;
+    font-size:18px;
+    opacity:0.18;
+    pointer-events:none;
+    z-index:2;
+    animation: drift linear infinite;
+  }
+  @keyframes drift {
+    0%   { transform: translateY(0px) rotate(0deg); }
+    33%  { transform: translateY(-22px) rotate(3deg); }
+    66%  { transform: translateY(-10px) rotate(-2deg); }
+    100% { transform: translateY(0px) rotate(0deg); }
+  }
+
+  /* ── GRAIN OVERLAY ── */
+  .grain {
+    position:fixed; inset:0; z-index:3; pointer-events:none;
+    opacity:0.035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+  }
+
+  /* ── MAIN STAGE ── */
+  .stage {
+    position:relative; z-index:10;
+    width:100%; height:100vh;
+    display:flex; align-items:center; justify-content:center;
+    padding: 40px 24px;
+  }
+
+  /* ── INTRO PANEL ── */
+  #introPanel {
+    text-align:center;
+    opacity:0;
+    animation: appear 1.2s 0.4s forwards;
+    max-width: 480px;
+    width:100%;
+  }
+
+  .eyebrow {
+    font-family: 'Jost', sans-serif;
+    font-size: 10px;
+    font-weight: 300;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 48px;
+    display:block;
+  }
+
+  .question-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(34px, 7vw, 56px);
+    font-weight: 300;
+    font-style: italic;
+    line-height: 1.25;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    margin-bottom: 52px;
+  }
+
+  /* ── BUTTONS ── */
+  .btn-group {
+    display:flex;
+    gap: 16px;
+    justify-content:center;
+    align-items:center;
+  }
+
+  .btn {
+    font-family: 'Jost', sans-serif;
+    font-size: 11px;
+    font-weight: 300;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    padding: 14px 36px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.35s ease;
+    position:relative;
+    overflow:hidden;
+    background: transparent;
+  }
+  .btn::after {
+    content:'';
+    position:absolute;
+    inset:0;
+    background:white;
+    opacity:0;
+    transition: opacity 0.3s;
+  }
+  .btn:hover::after { opacity:0.04; }
+
+  .btn-primary {
+    border: 1px solid rgba(232,228,222,0.5);
+    color: var(--text);
+  }
+  .btn-primary:hover {
+    border-color: var(--text);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+
+  .btn-secondary {
+    border: 1px solid rgba(232,228,222,0.15);
+    color: var(--muted);
+  }
+  .btn-secondary:hover {
+    border-color: rgba(232,228,222,0.35);
+    color: var(--text);
+    transform: translateY(-2px);
+  }
+
+  /* ── LETTER PANEL ── */
+  #letterPanel {
+    display:none;
+    text-align:center;
+    max-width: 520px;
+    width:100%;
+    opacity:0;
+  }
+  #letterPanel.visible {
+    display:block;
+    animation: appear 1s forwards;
+  }
+
+  .letter-top {
+    display:flex;
+    align-items:center;
+    gap:20px;
+    margin-bottom: 52px;
+    justify-content:center;
+  }
+  .letter-top-line {
+    flex:1;
+    max-width:80px;
+    height:1px;
+    background: linear-gradient(90deg, transparent, var(--line));
+  }
+  .letter-top-line.right {
+    background: linear-gradient(90deg, var(--line), transparent);
+  }
+  .letter-date {
+    font-family:'Jost', sans-serif;
+    font-size:10px;
+    font-weight:200;
+    letter-spacing:5px;
+    color: var(--muted);
+    text-transform:uppercase;
+  }
+
+  #typeTarget {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(17px, 2.5vw, 22px);
+    font-weight: 300;
+    line-height: 2;
+    letter-spacing: 0.2px;
+    color: var(--text);
+    white-space: pre-line;
+    min-height: 200px;
+    text-align: center;
+  }
+
+  /* cursor blink */
+  #cursor-blink {
+    display:inline-block;
+    width:1.5px; height:1em;
+    background:var(--red);
+    margin-left:3px;
+    vertical-align:middle;
+    animation: blink 1s step-end infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* red accent words */
+  .accent { color: var(--red); font-style:italic; }
+
+  /* ── BOTTOM RULE ── */
+  .bottom-rule {
+    width:30px; height:1px;
+    background: var(--red);
+    margin: 40px auto 0;
+    opacity:0;
+    transition: opacity 0.6s;
+  }
+  .bottom-rule.show { opacity:1; }
+
+  /* ── MUSIC BUTTON ── */
+  #musicBtn {
+    position:fixed;
+    bottom:28px; right:28px;
+    z-index:20;
+    width:44px; height:44px;
+    border-radius:50%;
+    background:rgba(255,255,255,0.04);
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:16px;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition: all 0.3s;
+    backdrop-filter: blur(8px);
+  }
+  #musicBtn:hover {
+    background:rgba(255,255,255,0.08);
+    color:var(--text);
+    border-color:rgba(232,228,222,0.3);
+  }
+  #musicBtn.active {
+    border-color: var(--red);
+    color: var(--red);
+    box-shadow: 0 0 20px rgba(200,0,26,0.25);
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes appear {
+    from { opacity:0; transform:translateY(16px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  /* ── TRANSITION VEIL ── */
+  #veil {
+    position:fixed; inset:0;
+    background:var(--bg);
+    z-index:50;
+    pointer-events:none;
+    opacity:0;
+    transition: opacity 0.6s ease;
+  }
+  #veil.fade { opacity:1; }
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+<canvas id="aurora"></canvas>
+<div class="grain"></div>
+<div id="veil"></div>
+
+<!-- floating elements -->
+<div class="float" style="left:8%;top:72%;animation-duration:18s;animation-delay:0s">🐼</div>
+<div class="float" style="left:88%;top:20%;animation-duration:22s;animation-delay:5s">✦</div>
+<div class="float" style="left:5%;top:22%;animation-duration:16s;animation-delay:2s">🥤</div>
+<div class="float" style="left:82%;top:78%;animation-duration:20s;animation-delay:9s">✧</div>
+<div class="float" style="left:50%;top:88%;animation-duration:25s;animation-delay:3s">🐼</div>
+<div class="float" style="left:70%;top:8%;animation-duration:17s;animation-delay:7s">⋆</div>
+
+<div class="stage">
+
+  <!-- ── INTRO ── -->
+  <div id="introPanel">
+    <span class="eyebrow">a message for you</span>
+    <p class="question-text">I have something<br>I want to say&hellip;</p>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="openLetter()">Open it</button>
+      <button class="btn btn-secondary" onclick="openLetter()">Go on then</button>
+    </div>
+  </div>
+
+  <!-- ── LETTER ── -->
+  <div id="letterPanel">
+    <div class="letter-top">
+      <div class="letter-top-line"></div>
+      <div class="letter-date" id="letterDate"></div>
+      <div class="letter-top-line right"></div>
+    </div>
+    <div id="typeTarget"><span id="cursor-blink"></span></div>
+    <div class="bottom-rule" id="bottomRule"></div>
+  </div>
+
+</div>
+
+<!-- music -->
+<audio id="lofi" loop>
+  <source src="https://cdn.pixabay.com/audio/2022/10/30/audio_3a6db49f2b.mp3" type="audio/mpeg">
+</audio>
+<button id="musicBtn" onclick="toggleMusic()" title="Toggle music">&#9835;</button>
+
+<script>
+// ── DATE ──
+const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const now = new Date();
+document.getElementById('letterDate').textContent =
+  months[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear();
+
+// ── MESSAGE ──
+// Using §§ markers to wrap red-accented words after typing
+const rawMessage =
+`Happy Birthday, §§Panda§§ 🐼
+
+I hope today feels calm,
+unhurried,
+and a little softer than the rest.
+
+I hope this year hands you
+clarity in the places you need it most,
+and quiet joy in the ones
+you least expect.
+
+Somewhere between everything —
+I hope there is always a cold §§Diet Coke§§
+exactly when you need it 🥤
+
+Here's to you.
+A genuinely §§good year§§.`;
+
+// ── OPEN LETTER ──
+function openLetter() {
+  const veil = document.getElementById('veil');
+  veil.classList.add('fade');
+  setTimeout(() => {
+    document.getElementById('introPanel').style.display = 'none';
+    const lp = document.getElementById('letterPanel');
+    lp.classList.add('visible');
+    veil.classList.remove('fade');
+    setTimeout(startTyping, 400);
+  }, 600);
+}
+
+// ── TYPEWRITER ──
+let charIndex = 0;
+const speed = 38;
+const target = document.getElementById('typeTarget');
+const cursor = document.getElementById('cursor-blink');
+
+// Split message into segments: normal text and §§accented§§
+function parseMessage(msg) {
+  const parts = [];
+  const regex = /§§(.*?)§§/g;
+  let last = 0, m;
+  while ((m = regex.exec(msg)) !== null) {
+    if (m.index > last) parts.push({ type: 'normal', text: msg.slice(last, m.index) });
+    parts.push({ type: 'accent', text: m[1] });
+    last = m.index + m[0].length;
+  }
+  if (last < msg.length) parts.push({ type: 'normal', text: msg.slice(last) });
+  return parts;
+}
+
+const segments = parseMessage(rawMessage);
+// Flatten to array of {char, type}
+const chars = [];
+segments.forEach(seg => {
+  [...seg.text].forEach(c => chars.push({ c, type: seg.type }));
+});
+
+function startTyping() {
+  charIndex = 0;
+  target.innerHTML = '';
+  target.appendChild(cursor);
+  typeNext();
+}
+
+function typeNext() {
+  if (charIndex >= chars.length) {
+    cursor.style.display = 'none';
+    document.getElementById('bottomRule').classList.add('show');
+    return;
+  }
+  const { c, type } = chars[charIndex];
+  const span = document.createElement('span');
+  if (type === 'accent') span.className = 'accent';
+  span.textContent = c;
+  target.insertBefore(span, cursor);
+  charIndex++;
+  // Slightly varied speed for realism
+  const delay = c === '\n' ? speed * 4 : speed + (Math.random() * 20 - 10);
+  setTimeout(typeNext, Math.max(10, delay));
+}
+
+// ── MUSIC ──
+const music = document.getElementById('lofi');
+const btn   = document.getElementById('musicBtn');
+let playing = false;
+function toggleMusic() {
+  if (!playing) {
+    music.play().catch(() => {});
+    playing = true;
+    btn.classList.add('active');
+  } else {
+    music.pause();
+    playing = false;
+    btn.classList.remove('active');
+  }
+}
+
+// ── STARS CANVAS ──
+const sc   = document.getElementById('stars');
+const sctx = sc.getContext('2d');
+let sw, sh, stars = [];
+
+function initStars() {
+  sw = sc.width  = window.innerWidth;
+  sh = sc.height = window.innerHeight;
+  stars = [];
+  for (let i = 0; i < 180; i++) {
+    stars.push({
+      x:  Math.random() * sw,
+      y:  Math.random() * sh,
+      r:  Math.random() * 1.2,
+      dx: (Math.random() - 0.5) * 0.15,
+      dy: (Math.random() - 0.5) * 0.15,
+      twinkle: Math.random(),
+      twinkleSpeed: 0.005 + Math.random() * 0.01,
+    });
+  }
+}
+window.addEventListener('resize', initStars);
+initStars();
+
+function drawStars() {
+  sctx.clearRect(0, 0, sw, sh);
+  stars.forEach(s => {
+    s.twinkle += s.twinkleSpeed;
+    const alpha = 0.3 + Math.abs(Math.sin(s.twinkle)) * 0.5;
+    sctx.beginPath();
+    sctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    sctx.fillStyle = `rgba(232,228,222,${alpha})`;
+    sctx.fill();
+    s.x += s.dx;
+    s.y += s.dy;
+    if (s.x < 0 || s.x > sw) s.dx *= -1;
+    if (s.y < 0 || s.y > sh) s.dy *= -1;
+  });
+  requestAnimationFrame(drawStars);
+}
+drawStars();
+
+// ── AURORA CANVAS ──
+const ac   = document.getElementById('aurora');
+const actx = ac.getContext('2d');
+let at = 0;
+
+function initAurora() {
+  ac.width  = window.innerWidth;
+  ac.height = window.innerHeight;
+}
+window.addEventListener('resize', initAurora);
+initAurora();
+
+function drawAurora() {
+  actx.clearRect(0, 0, ac.width, ac.height);
+  at += 0.0022;
+  const w = ac.width, h = ac.height;
+
+  // First wave — deep red
+  actx.beginPath();
+  for (let x = 0; x <= w; x += 8) {
+    const y = h * 0.55 + Math.sin(x * 0.0018 + at) * 130 + Math.sin(x * 0.003 + at * 1.4) * 60;
+    x === 0 ? actx.moveTo(x, y) : actx.lineTo(x, y);
+  }
+  actx.strokeStyle = 'rgba(160,0,20,0.055)';
+  actx.lineWidth = 160;
+  actx.stroke();
+
+  // Second wave — silver
+  actx.beginPath();
+  for (let x = 0; x <= w; x += 8) {
+    const y = h * 0.45 + Math.sin(x * 0.0022 + at * 0.8 + 1) * 100 + Math.sin(x * 0.004 + at) * 40;
+    x === 0 ? actx.moveTo(x, y) : actx.lineTo(x, y);
+  }
+  actx.strokeStyle = 'rgba(200,200,210,0.025)';
+  actx.lineWidth = 120;
+  actx.stroke();
+
+  requestAnimationFrame(drawAurora);
+}
+drawAurora();
+</script>
+</body>
+</html>
